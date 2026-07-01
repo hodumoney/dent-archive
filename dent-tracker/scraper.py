@@ -47,6 +47,7 @@ def _get(url, params=None):
 
 
 def _find_login_redirect(html):
+    """JS 리디렉션(로그인 페이지로 튕김) 주소 추출."""
     m = (re.search(r"location\.replace\(['\"]([^'\"]+)['\"]\)", html)
          or re.search(r"location\.href\s*=\s*['\"]([^'\"]+)['\"]", html)
          or re.search(r"<meta[^>]+url=([^'\">\s]+)", html, re.I))
@@ -54,6 +55,7 @@ def _find_login_redirect(html):
 
 
 def _find_login_form(html, page_url):
+    """비밀번호 입력이 있는 form 을 찾아 (action, method, data, id필드, pw필드) 반환."""
     soup = BeautifulSoup(html, "lxml")
     for form in soup.find_all("form"):
         pw = form.find("input", {"type": "password"})
@@ -91,6 +93,7 @@ def ensure_login(verbose=True):
         _logged_in = True
         return True
 
+    # 로그인 페이지 찾기: JS 리디렉션 우선, 실패 시 후보 URL
     login_page = _find_login_redirect(list_html)
     if login_page:
         login_page = urljoin(config.LIST_URL, login_page)
