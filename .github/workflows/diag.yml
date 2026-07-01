@@ -1,0 +1,22 @@
+name: 게시판 진단
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dent-tracker
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@v4
+      - name: 파이썬 준비
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 패키지 설치
+        run: pip install -r requirements.txt
+      - name: 진단 실행
+        run: python diag.py
