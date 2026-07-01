@@ -1,0 +1,68 @@
+name: 치과 아카이브 업데이트
+
+on:
+  schedule:
+    - cron: '0 23 * * *'
+    - cron: '0 3 * * *'
+    - cron: '0 7 * * *'
+    - cron: '0 11 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dent-tracker
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@v4
+
+      - name: 파이썬 준비
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 필요한 패키지 설치
+        run: pip install -r requirements.txt
+
+      - name: 게시판 수집
+        env:
+          DENT_ID: ${{ secrets.DENT_ID }}
+          DENT_PW: ${{ secrets.DENT_PW }}
+        run: python crawl.py || echo "수집 단계 문제, 사이트 생성은 계속"
+
+      - name: 웹사이트 파일 생성
+        run: python build_site.py
+
+      - name: 데이터베이스 저장
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dent_tracker.db
+          git commit -m "데이터 업데이트" || echo "변경 없음"
+          git push || echo "푸시할 내용 없음"
+
+      - name: Pages 설정
+        uses: actions/configure-pages@v5
+
+      - name: 사이트 업로드
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dent-tracker/site
+
+      - name: Pages 배포
+        id: deploy
+        uses: actions/deploy-pages@v4
