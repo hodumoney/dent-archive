@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""로그인 후 실제 목록/상세 HTML 구조 확인 (파서 교정용)."""
+"""로그인 후 실제 게시글 행/링크 구조 확인 (파서 교정용 v4)."""
+import re
 import config
 import scraper
-import parser
 from bs4 import BeautifulSoup
 
 ok = scraper.ensure_login(verbose=True)
@@ -13,32 +13,33 @@ if not ok:
 html = scraper.fetch_list_page(1)
 print("목록 HTML 길이:", len(html))
 soup = BeautifulSoup(html, "lxml")
-tables = sorted(soup.find_all("table"), key=lambda t: len(t.find_all("tr")), reverse=True)
-print("표 개수:", len(tables))
-if tables:
-    rows = tables[0].find_all("tr")
-    print("가장 큰 표의 행 수:", len(rows))
-    print("===== 처음 5개 행 raw HTML =====")
-    for i, tr in enumerate(rows[:5]):
-        print(f"--- 행 {i} ---")
-        print(str(tr)[:1000])
 
-print("\n===== 현재 파서 결과(상위 5) =====")
-prows = parser.parse_list(html)
-print("인식 글수:", len(prows))
-for r in prows[:5]:
-    print("  no=", r["no"], "|구분:", r["category"],
-          "|제목:", (r["title"] or "")[:24], "|작성자:", r["author"], "|url:", r["url"])
+# [A] 진짜 제목 링크 후보 (view.php / read)
+view_links = [a for a in soup.find_all("a", href=True)
+              if "view.php" in a["href"] or "read" in a["href"].lower()]
+print("\n[A] view/read 링크 수:", len(view_links))
+for a in view_links[:6]:
+    print("   href=", a["href"][:90], "| text=", a.get_text(strip=True)[:34])
 
-if prows:
-    url = prows[0]["url"]
-    print("\n상세 URL:", url)
-    vhtml = scraper.fetch_view(url)
-    print("상세 HTML 길이:", len(vhtml))
-    vsoup = BeautifulSoup(vhtml, "lxml")
-    for sel in config.VIEW_CONTENT_SELECTORS:
-        el = vsoup.select_one(sel)
-        if el:
-            print("  본문 매칭 selector:", sel, "| 글자수:", len(el.get_text(strip=True)))
-    print("===== 상세 HTML 앞 1200자 =====")
-    print(vhtml[:1200])
+# [B] 작성자(memo_id) 링크의 부모 행 전체 HTML = 실제 게시글 한 줄
+memo = [a for a in soup.find_all("a", href=True) if "memo_id" in a["href"]]
+print("\n[B] memo_id(작성자) 링크 수:", len(memo))
+seen = 0
+for a in memo:
+    tr = a.find_parent("tr")
+    if tr is not None and seen < 3:
+        print(f"--- 게시글 행 {seen} 전체 HTML ---")
+        print(str(tr)[:1600])
+        seen += 1
+
+# [C] 숫자 쿼리를 가진 링크 패턴
+print("\n[C] 숫자 쿼리 링크 샘플:")
+cnt = 0
+for a in soup.find_all("a", href=True):
+    h = a["href"]
+    if re.search(r"(no|number|idx|wr_id|uid)=\d+", h):
+        print("   ", h[:100], "| text=", a.get_text(strip=True)[:24])
+        cnt += 1
+        if cnt >= 8:
+            break
+print("   찾은 개수:", cnt)
