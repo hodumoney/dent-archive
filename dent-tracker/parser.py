@@ -168,20 +168,29 @@ def parse_list(html):
 # ── 상세 파싱 (본문 텍스트 추출) ──────────────────────────────
 def parse_view(html):
     soup = BeautifulSoup(html, "lxml")
-    for tag in soup(["script", "style", "noscript"]):
+    for tag in soup(["script", "style", "noscript", "header", "footer", "nav", "form"]):
         tag.decompose()
+    # 메뉴/네비게이션으로 보이는 ul 제거 (링크가 많은 목록)
+    for ul in soup.find_all("ul"):
+        if len(ul.find_all("a")) >= 4 and len(ul.get_text(strip=True)) < 400:
+            ul.decompose()
+    # 지정 selector 우선
     for sel in config.VIEW_CONTENT_SELECTORS:
         el = soup.select_one(sel)
         if el:
             text = el.get_text("\n", strip=True)
             if len(text) > 20:
                 return {"content": text}
-    # 폴백: 메뉴/네비 제외, 가장 긴 텍스트 블록
+    # 폴백: 링크 비중 낮고 가장 텍스트 많은 블록
     best = ""
     for tag in soup.find_all(["td", "div", "article", "section", "p"]):
-        if tag.find("ul") and len(tag.find_all("a")) > 8:
-            continue  # 메뉴/목록 영역 제외
+        links = sum(len(a.get_text(strip=True)) for a in tag.find_all("a"))
         text = tag.get_text("\n", strip=True)
+        if links > len(text) * 0.5:
+            continue
         if len(text) > len(best):
             best = text
+    if len(best) < 20:
+        body = soup.find("body")
+        best = body.get_text("\n", strip=True) if body else ""
     return {"content": best}
