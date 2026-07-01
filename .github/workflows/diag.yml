@@ -19,4 +19,7 @@ jobs:
       - name: 패키지 설치
         run: pip install -r requirements.txt
       - name: 진단 실행
+        env:
+          DENT_ID: ${{ secrets.DENT_ID }}
+          DENT_PW: ${{ secrets.DENT_PW }}
         run: python diag.py
