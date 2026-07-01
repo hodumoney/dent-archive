@@ -14,7 +14,7 @@ BASE_URL = SITE_ROOT + "/recruit_dental"
 LIST_URL = BASE_URL + "/list.php"          # 목록 페이지
 LIST_PARAMS = {"code": ""}                 # 고정 쿼리 파라미터
 PAGE_PARAM = "gotopage"                     # 페이지 번호 파라미터 이름
-PAGES_TO_CRAWL = 5                          # 매 실행 시 앞에서 몇 페이지까지 볼지
+PAGES_TO_CRAWL = 20                          # 매 실행 시 앞에서 몇 페이지까지 볼지
 
 # ── 로그인 ────────────────────────────────────────────────────
 LOGIN_ENABLED = True
