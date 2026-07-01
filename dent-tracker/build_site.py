@@ -10,6 +10,7 @@ import os
 
 import analyze
 import db
+import parser
 
 OUT_DIR = "site"
 
@@ -30,6 +31,7 @@ def collect_data():
             "url": p.get("url"), "content": p.get("content") or "",
             "clinic_total": p.get("clinic_total", 1),
             "repost_index": p.get("repost_index"),
+            "region": parser.region_of(p.get("title")),
         }
 
     clinics = []
@@ -108,6 +110,11 @@ tr.deleted .title{text-decoration:line-through;text-decoration-color:var(--alarm
 .badge.del{background:var(--alarm);color:#fff}
 .badge.rep{background:var(--alarm-soft);color:var(--alarm);margin-left:6px}
 .cat{font-size:11px;font-weight:700;color:var(--struct);background:#EAF2F6;border-radius:5px;padding:2px 6px;white-space:nowrap}
+.regions{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px}
+.regions button{font-size:12.5px;font-weight:600;color:var(--muted);background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:5px 10px;cursor:pointer;font-family:var(--sans)}
+.regions button.on{background:var(--struct);color:#fff;border-color:var(--struct)}
+.regions .rc{font-family:var(--mono);font-size:10px;opacity:.65;margin-left:1px}
+.rg-chip{font-size:11px;font-weight:700;color:#6A4AAF;background:#EEEAF7;border-radius:5px;padding:2px 6px;white-space:nowrap}
 .toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
 .seg{display:flex;border:1px solid var(--line2);border-radius:9px;overflow:hidden}
 .seg button{padding:7px 14px;font-size:13px;font-weight:600;color:var(--muted);background:var(--card);border:none;cursor:pointer;font-family:var(--sans)}
@@ -148,7 +155,8 @@ const DATA = __DATA__;
 
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function dt(s){return s?String(s).replace("T"," ").slice(0,16):"-";}
-let curTab="clinics", curStatus="all", curSearch="";
+let curTab="clinics", curStatus="all", curSearch="", curRegion="전체";
+const REGIONS=["전체","서울","경기","인천","부산","대구","광주","대전","울산","세종","충북","충남","전남","전북","경북","경남","강원","제주","기타"];
 
 function chips(){
   const s=DATA.summary;
@@ -183,23 +191,36 @@ function renderClinics(){
 }
 
 function renderPosts(){
-  let rows=DATA.posts;
-  if(curStatus==="deleted") rows=rows.filter(p=>p.is_deleted);
-  else if(curStatus==="active") rows=rows.filter(p=>!p.is_deleted);
+  let base=DATA.posts;
+  if(curStatus==="deleted") base=base.filter(p=>p.is_deleted);
+  else if(curStatus==="active") base=base.filter(p=>!p.is_deleted);
   if(curSearch){
     const q=curSearch.toLowerCase();
-    rows=rows.filter(p=>(p.title||"").toLowerCase().includes(q)||(p.author||"").toLowerCase().includes(q)||(p.content||"").toLowerCase().includes(q));
+    base=base.filter(p=>(p.title||"").toLowerCase().includes(q)||(p.author||"").toLowerCase().includes(q)||(p.content||"").toLowerCase().includes(q));
   }
+  const rc={}; base.forEach(p=>{const k=p.region||"기타"; rc[k]=(rc[k]||0)+1;});
+  let rows=base;
+  if(curRegion!=="전체") rows=base.filter(p=>(p.region||"기타")===curRegion);
+
   let h=`<div class="toolbar"><div class="seg">
     <button data-st="all" class="${curStatus==='all'?'on':''}">전체</button>
     <button data-st="active" class="${curStatus==='active'?'on':''}">게시중</button>
     <button data-st="deleted" class="${curStatus==='deleted'?'on':''}">삭제됨</button>
   </div><div class="search"><input id="q" placeholder="제목·작성자·본문 검색" value="${esc(curSearch)}"></div></div>`;
+  h+=`<div class="regions">`;
+  for(const r of REGIONS){
+    const c = r==="전체" ? base.length : (rc[r]||0);
+    if(r!=="전체" && r!=="기타" && c===0 && curRegion!==r) continue;
+    h+=`<button data-rg="${r}" class="${curRegion===r?'on':''}">${r}${r!=="전체"?` <span class="rc">${c}</span>`:''}</button>`;
+  }
+  h+=`</div>`;
+
   if(!rows.length){h+=`<div class="empty">해당하는 글이 없습니다.</div>`;return h;}
-  h+=`<table class="posts"><thead><tr><th style="width:70px">번호</th><th style="width:44px">구분</th><th>제목</th><th class="col-hide" style="width:140px">작성자(치과)</th><th class="col-hide" style="width:92px">게시일</th><th style="width:70px">상태</th></tr></thead><tbody>`;
+  h+=`<table class="posts"><thead><tr><th style="width:64px">번호</th><th style="width:42px">구분</th><th style="width:44px">지역</th><th>제목</th><th class="col-hide" style="width:132px">작성자(치과)</th><th class="col-hide" style="width:88px">게시일</th><th style="width:64px">상태</th></tr></thead><tbody>`;
   for(const p of rows){
     h+=`<tr class="${p.is_deleted?'deleted':''}">
       <td class="no">${p.no}</td><td><span class="cat">${esc(p.category||'-')}</span></td>
+      <td><span class="rg-chip">${esc(p.region||'기타')}</span></td>
       <td><span class="title title-link" onclick="showDetail(${p.no})">${esc(p.title||'(제목 없음)')}</span>${p.clinic_total>=2?`<span class="badge rep">${p.clinic_total}회</span>`:''}</td>
       <td class="col-hide">${esc(p.author||'-')}</td><td class="col-hide no">${dt(p.posted)}</td>
       <td>${p.is_deleted?`<span class="badge del">삭제</span>`:`<span style="color:var(--ok);font-size:12px;font-weight:600">게시중</span>`}</td>
@@ -218,6 +239,7 @@ function render(){
 
 function bindPostControls(){
   document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{curStatus=b.dataset.st;render();});
+  document.querySelectorAll(".regions button").forEach(b=>b.onclick=()=>{curRegion=b.dataset.rg;render();});
   const q=document.getElementById("q");
   if(q){q.oninput=()=>{curSearch=q.value; const app=document.getElementById("app"); app.innerHTML=renderPosts(); bindPostControls(); const nq=document.getElementById("q"); nq.focus(); nq.setSelectionRange(nq.value.length,nq.value.length);};}
 }
