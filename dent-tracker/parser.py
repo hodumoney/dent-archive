@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-HTML 파싱 + 치과 식별키 생성.
+HTML 파싱 + 치과 식별키 + 지역 분류.
 
-목록 컬럼 순서(스샷 기준): 번호 | 구분(구인/구직/양도) | 제목 | 작성자 | 날짜 | 조회수 | 추천 | 신고
-식별키는 '작성자'(=치과 상호) 우선.
+실제 목록 구조: 각 글이 <ul><li>번호</li><li>구분</li>
+  <li><a href="list2content.php?num=..">제목</a></li>
+  <li><a href="javascript:memo_id(..)">작성자(치과)</a></li>
+  <li>날짜</li><li>조회</li>...</ul>
+식별키는 '작성자'(치과 상호) 우선.
 """
 import re
 from urllib.parse import urlparse, parse_qs, urljoin
@@ -27,6 +30,42 @@ def extract_phone(text):
         if 9 <= len(digits) <= 12:
             return digits, raw.strip()
     return None, None
+
+
+# ── 지역 분류 (제목 앞 "○○도 △△시 |" 에서 추출) ─────────────
+# 전체 시·도명을 우선 매칭 (광주광역시 vs 경기도 광주시 혼동 방지)
+REGION_MAP = [
+    ("서울", ["서울특별시", "서울시", "서울"]),
+    ("경기", ["경기도", "경기"]),
+    ("인천", ["인천광역시", "인천"]),
+    ("부산", ["부산광역시", "부산"]),
+    ("대구", ["대구광역시", "대구"]),
+    ("광주", ["광주광역시"]),
+    ("대전", ["대전광역시", "대전"]),
+    ("울산", ["울산광역시", "울산"]),
+    ("세종", ["세종특별자치시", "세종시", "세종"]),
+    ("충북", ["충청북도", "충북"]),
+    ("충남", ["충청남도", "충남"]),
+    ("전남", ["전라남도", "전남"]),
+    ("전북", ["전북특별자치도", "전라북도", "전북"]),
+    ("경북", ["경상북도", "경북"]),
+    ("경남", ["경상남도", "경남"]),
+    ("강원", ["강원특별자치도", "강원도", "강원"]),
+    ("제주", ["제주특별자치도", "제주도", "제주"]),
+]
+REGION_ORDER = [r[0] for r in REGION_MAP]
+
+
+def region_of(title):
+    """제목 앞부분에서 시·도를 뽑아 짧은 라벨로 반환. 없으면 None."""
+    if not title:
+        return None
+    head = title.split("|")[0]
+    for label, names in REGION_MAP:
+        for n in names:
+            if n in head:
+                return label
+    return None
 
 
 # ── 작성자/상호 정규화 ────────────────────────────────────────
@@ -65,7 +104,7 @@ def parse_date(raw):
     if not raw:
         return None
     raw = raw.strip()
-    if re.fullmatch(r"\d{1,2}:\d{2}(:\d{2})?", raw):  # 시간만(오늘)
+    if re.fullmatch(r"\d{1,2}:\d{2}(:\d{2})?", raw):
         return None
     m = re.search(r"(\d{2,4})[-./](\d{1,2})[-./](\d{1,2})", raw)
     if m:
@@ -75,93 +114,73 @@ def parse_date(raw):
     return None
 
 
-# ── 목록 파싱 ─────────────────────────────────────────────────
-def _no_from_href(href):
-    q = parse_qs(urlparse(href).query)
-    for key in config.NO_QUERY_KEYS:
-        if key in q and q[key] and q[key][0].isdigit():
-            return int(q[key][0])
-    m = re.search(r"(\d{3,})", urlparse(href).path)
-    return int(m.group(1)) if m else None
-
-
-def _is_date(s):
-    return bool(re.search(r"\d{2,4}[-./]\d{1,2}[-./]\d{1,2}", s or ""))
-
-
+# ── 목록 파싱 (<ul><li> 구조) ─────────────────────────────────
 def parse_list(html):
-    """목록 HTML -> [{no,category,title,author,posted_raw,posted_at,views,url}, ...]"""
+    """목록 HTML -> [{no,category,title,author,posted_raw,posted_at,views,url,region}, ...]"""
     soup = BeautifulSoup(html, "lxml")
     rows = []
     seen = set()
 
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if config.VIEW_LINK_KEYWORD not in href and not re.search(r"\d{3,}", href):
+    for a in soup.select('a[href*="list2content.php"]'):
+        href = a.get("href", "")
+        m = re.search(r"num=(\d+)", href)
+        if not m:
+            continue
+        no = int(m.group(1))
+        if no in seen:
             continue
         title = a.get_text(" ", strip=True)
-        if not title or len(title) < 2:
-            continue
-        no = _no_from_href(href)
-
-        tr = a.find_parent("tr")
-        cells, title_idx = [], None
-        if tr:
-            tds = tr.find_all(["td", "th"])
-            for i, td in enumerate(tds):
-                cells.append(td.get_text(" ", strip=True))
-                if td.find("a", href=True) is a or (a in td.find_all("a")):
-                    title_idx = i
-
-        # 글번호: href 우선, 없으면 제목 앞쪽 셀의 큰 정수
-        if no is None:
-            for c in cells[:title_idx or 0]:
-                if re.fullmatch(r"\d{3,}", c):
-                    no = int(c); break
-        if no is None or no in seen:
+        if not title:
             continue
         seen.add(no)
 
-        category = author = posted_raw = None
-        views = None
-        if title_idx is not None:
-            before = cells[:title_idx]
-            after = cells[title_idx + 1:]
-            for c in before:
-                if c in config.CATEGORY_WORDS:
-                    category = c
-            # 제목 뒤 순서: 작성자, 날짜, 조회 ...
-            date_pos = next((j for j, c in enumerate(after) if _is_date(c)), None)
-            if date_pos is not None:
-                posted_raw = after[date_pos]
-                author = next((c for c in after[:date_pos] if c), None)
-                for c in after[date_pos + 1:]:
-                    if re.fullmatch(r"[\d,]+", c):
-                        views = int(c.replace(",", "")); break
-            else:
-                author = next((c for c in after if c and not re.fullmatch(r"[\d,]+", c)), None)
+        ul = a.find_parent("ul")
+        lis = ul.find_all("li") if ul else []
+        texts = [li.get_text(" ", strip=True) for li in lis]
 
-        abs_url = urljoin(config.LIST_URL, href)
+        category = next((t for t in texts if t in config.CATEGORY_WORDS), None)
+        author = None
+        if ul:
+            am = ul.find("a", href=lambda h: h and "memo_id" in h)
+            if am:
+                author = am.get_text(strip=True)
+        posted_raw = next((t for t in texts if re.search(r"\d{4}-\d{1,2}-\d{1,2}", t)), None)
+        views = None
+        for t in texts:
+            if re.fullmatch(r"[\d,]+", t) and t.replace(",", "") != str(no):
+                views = int(t.replace(",", ""))
+
         rows.append({
-            "no": no, "category": category, "title": title, "author": author,
-            "posted_raw": posted_raw, "posted_at": parse_date(posted_raw),
-            "views": views, "url": abs_url,
+            "no": no,
+            "category": category,
+            "title": title,
+            "author": author,
+            "posted_raw": posted_raw,
+            "posted_at": parse_date(posted_raw),
+            "views": views,
+            "url": urljoin(config.LIST_URL, href),
+            "region": region_of(title),
         })
 
     return rows
 
 
-# ── 상세 파싱 ─────────────────────────────────────────────────
+# ── 상세 파싱 (본문 텍스트 추출) ──────────────────────────────
 def parse_view(html):
     soup = BeautifulSoup(html, "lxml")
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
     for sel in config.VIEW_CONTENT_SELECTORS:
         el = soup.select_one(sel)
         if el:
             text = el.get_text("\n", strip=True)
             if len(text) > 20:
                 return {"content": text}
+    # 폴백: 메뉴/네비 제외, 가장 긴 텍스트 블록
     best = ""
-    for tag in soup.find_all(["td", "div", "article", "section"]):
+    for tag in soup.find_all(["td", "div", "article", "section", "p"]):
+        if tag.find("ul") and len(tag.find_all("a")) > 8:
+            continue  # 메뉴/목록 영역 제외
         text = tag.get_text("\n", strip=True)
         if len(text) > len(best):
             best = text
