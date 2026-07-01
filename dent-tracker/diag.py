@@ -1,42 +1,39 @@
 # -*- coding: utf-8 -*-
-"""서버에서 게시판 목록이 실제로 어떻게 보이는지 진단."""
+"""로그인 페이지의 폼 구조까지 확인하는 진단 (2단계)."""
+import re
 import config
 config.LOGIN_ENABLED = False
 import scraper
-import parser
 from bs4 import BeautifulSoup
 
-print("요청 주소:", config.LIST_URL, config.LIST_PARAMS)
-try:
-    r = scraper._session.get(
-        config.LIST_URL,
-        params={config.PAGE_PARAM: 1, **config.LIST_PARAMS},
-        timeout=20,
-    )
-    print("HTTP 상태코드:", r.status_code)
-    print("최종 도착 주소:", r.url)
-    html = scraper._decode(r)
-except Exception as e:
-    print("요청 중 오류:", repr(e))
-    raise SystemExit(0)
 
-print("받은 HTML 길이:", len(html), "자")
-soup = BeautifulSoup(html, "lxml")
-print("링크(a):", len(soup.find_all("a")),
-      "/ 표(table):", len(soup.find_all("table")),
-      "/ 행(tr):", len(soup.find_all("tr")),
-      "/ 입력폼(form):", len(soup.find_all("form")))
-pw = soup.find("input", {"type": "password"})
-print("비밀번호 입력칸 존재:", bool(pw))
-for f in soup.find_all("form"):
-    names = [i.get("name") for i in f.find_all("input") if i.get("name")]
-    print("  form action=", f.get("action"), "method=", f.get("method"), "inputs=", names)
+def get(url):
+    r = scraper._session.get(url, timeout=20)
+    return r, scraper._decode(r)
 
-rows = parser.parse_list(html)
-print("파서가 인식한 글 수:", len(rows))
-for x in rows[:6]:
-    print("   글", x["no"], "|", x.get("category"), "|",
-          (x.get("title") or "")[:20], "| 작성자:", x.get("author"))
 
-print("========== HTML 앞부분 1500자 ==========")
-print(html[:1500])
+# 1) 목록 요청 → 로그인 페이지로 튕기는 JS 주소 추출
+r, html = get(config.LIST_URL + "?gotopage=1&code=")
+print("목록 상태코드:", r.status_code, "| 길이:", len(html))
+m = (re.search(r"location\.replace\(['\"]([^'\"]+)['\"]\)", html)
+     or re.search(r"location\.href\s*=\s*['\"]([^'\"]+)['\"]", html))
+login_url = m.group(1) if m else None
+print("발견한 로그인 주소:", login_url)
+
+# 2) 로그인 페이지 폼 구조 확인
+if login_url:
+    lr, lhtml = get(login_url)
+    print("로그인페이지 상태코드:", lr.status_code, "| 길이:", len(lhtml))
+    lsoup = BeautifulSoup(lhtml, "lxml")
+    forms = lsoup.find_all("form")
+    print("폼 개수:", len(forms))
+    for i, f in enumerate(forms):
+        print(f"--- 폼 {i}: action={f.get('action')} method={f.get('method')}")
+        for inp in f.find_all(["input", "select", "button"]):
+            print("     ", inp.name, "| name=", inp.get("name"),
+                  "| type=", inp.get("type"), "| value=", (inp.get("value") or "")[:20])
+    print("========== 로그인페이지 HTML 앞부분 2000자 ==========")
+    print(lhtml[:2000])
+else:
+    print("로그인 주소를 못 찾음. 아래 목록 HTML 확인:")
+    print(html[:1000])
