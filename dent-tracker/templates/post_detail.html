@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% set active = 'posts' %}
+{% block title %}#{{ p.no }} {{ p.title }} · 아카이브{% endblock %}
+{% block body %}
+
+<a class="back" href="javascript:history.back()">← 목록으로</a>
+
+<div class="detail">
+  <h2>
+    {{ p.title or '(제목 없음)' }}
+    {% if p.is_deleted %}<span class="badge del">삭제됨</span>{% endif %}
+  </h2>
+  <div class="meta">
+    #{{ p.no }} · 작성자 {{ p.author or '-' }} ·
+    게시 {{ (p.posted_at or p.posted_raw or p.first_seen)|shortdt }}
+    {% if p.phone_display %} · ☎ {{ p.phone_display }}{% endif %}
+    {% if p.is_deleted %} · 삭제 감지 {{ p.deleted_at|shortdt }}{% endif %}
+    · <a href="{{ p.url }}" target="_blank" rel="noopener">원본 링크</a>
+  </div>
+
+  {% if p.content %}
+    <div class="body">{{ p.content }}</div>
+  {% else %}
+    <div class="body" style="color:var(--muted)">본문을 수집하지 못했습니다. 원본 링크를 확인하세요.</div>
+  {% endif %}
+</div>
+
+{% if siblings|length > 1 %}
+<h3 style="margin:26px 0 10px;font-size:15px">이 치과의 다른 게시글 ({{ siblings|length }}건)</h3>
+<table class="posts">
+  <tbody>
+    {% for sib in siblings %}
+    <tr class="{{ 'deleted' if sib.is_deleted }}">
+      <td class="no" style="width:64px">{{ sib.repost_index }}회차</td>
+      <td><a class="title" href="/post/{{ sib.no }}">{{ sib.title or '(제목 없음)' }}</a></td>
+      <td class="no" style="width:96px">{{ (sib.posted_at or sib.first_seen)|shortdt }}</td>
+      <td style="width:70px">
+        {% if sib.is_deleted %}<span class="badge del">삭제</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% endblock %}

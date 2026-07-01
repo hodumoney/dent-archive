@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% set active = 'clinics' %}
+{% block title %}반복 치과 · 치과 구인글 아카이브{% endblock %}
+{% block body %}
+
+<div class="chips">
+  <div class="chip"><div class="n">{{ s.total }}</div><div class="l">수집한 글</div></div>
+  <div class="chip warn"><div class="n">{{ s.deleted }}</div><div class="l">삭제 감지</div></div>
+  <div class="chip warn"><div class="n">{{ s.repeat_clinics }}</div><div class="l">반복 게시 치과</div></div>
+  {% if s.last_run %}
+  <div class="chip"><div class="n" style="font-size:14px;padding-top:6px">{{ s.last_run.ran_at|shortdt }}</div>
+    <div class="l">마지막 수집</div></div>
+  {% endif %}
+</div>
+
+{% if not groups %}
+  <div class="empty">
+    아직 반복 게시가 감지된 치과가 없습니다.<br>
+    <code>python crawl.py</code> 를 며칠 돌리면 재게시 패턴이 쌓입니다.
+  </div>
+{% endif %}
+
+{% for g in groups %}
+<div class="clinic">
+  <div class="clinic-head">
+    <div class="clinic-id">
+      <span class="name">{{ g.label }}</span>
+      <span class="kind">{{ g.kind }}</span>
+    </div>
+    <span class="count">{{ g.post_count }}회 게시<span class="x">삭제 {{ g.deleted_count }}</span></span>
+  </div>
+
+  <div class="timeline">
+    <div class="tl-track">
+      {% for p in g.posts %}
+      <div class="tl-node">
+        <div class="tl-dot {{ 'del' if p.is_deleted }}">{{ p.repost_index }}</div>
+        <div class="tl-seq">#{{ p.no }}</div>
+        <div class="tl-date">{{ (p.posted_at or p.first_seen)|shortdt }}</div>
+        {% if p.is_deleted %}
+          <div class="tl-tag del">삭제됨</div>
+          <div class="tl-seq">{{ p.deleted_at|shortdt }}</div>
+        {% else %}
+          <div class="tl-tag live">게시중</div>
+        {% endif %}
+        <a href="/post/{{ p.no }}">보기</a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% endblock %}

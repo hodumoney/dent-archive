@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% set active = 'deleted' if status=='deleted' else 'posts' %}
+{% block title %}게시글 · 치과 구인글 아카이브{% endblock %}
+{% block body %}
+
+<div class="toolbar">
+  <div class="seg">
+    <a href="/posts?status=all"    class="{{ 'on' if status=='all' }}">전체</a>
+    <a href="/posts?status=active" class="{{ 'on' if status=='active' }}">게시중</a>
+    <a href="/posts?status=deleted"class="{{ 'on' if status=='deleted' }}">삭제됨</a>
+  </div>
+  <form method="get" action="/posts">
+    <input type="hidden" name="status" value="{{ status }}">
+    <input type="text" name="q" value="{{ search }}" placeholder="제목·본문·전화번호 검색">
+    <button type="submit">검색</button>
+  </form>
+</div>
+
+{% if not rows %}
+  <div class="empty">해당하는 글이 없습니다.</div>
+{% else %}
+<table class="posts">
+  <thead>
+    <tr>
+      <th style="width:64px">번호</th>
+      <th style="width:48px">구분</th>
+      <th>제목</th>
+      <th class="col-author" style="width:140px">작성자(치과)</th>
+      <th class="col-date" style="width:96px">게시일</th>
+      <th style="width:80px">상태</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr class="{{ 'deleted' if r.is_deleted }}">
+      <td class="no">{{ r.no }}</td>
+      <td><span class="cat">{{ r.category or '-' }}</span></td>
+      <td>
+        <a class="title" href="/post/{{ r.no }}">{{ r.title or '(제목 없음)' }}</a>
+        {% if r.clinic_total >= 2 %}<span class="badge rep">{{ r.clinic_total }}회</span>{% endif %}
+      </td>
+      <td class="col-author">{{ r.author or '-' }}</td>
+      <td class="col-date no">{{ (r.posted_at or r.first_seen)|shortdt }}</td>
+      <td>
+        {% if r.is_deleted %}<span class="badge del">삭제</span>
+        {% else %}<span style="color:var(--ok);font-size:12px;font-weight:600">게시중</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% endblock %}
