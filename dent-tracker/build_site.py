@@ -151,7 +151,7 @@ nav.tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
 .detail-links{display:flex;gap:8px;margin:0 0 18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
 .detail-links a{font-size:13px;font-weight:700;color:var(--blue);background:var(--blue-soft);border-radius:9px;padding:8px 14px;text-decoration:none}
 .detail-links a:hover{background:#D8E7FD}
-.modal .body{white-space:pre-wrap;line-height:1.75;font-size:15px;color:var(--sub)}
+.modal .body{font-size:15px;color:var(--ink)}
 .modal .close{position:absolute;top:16px;right:16px;border:none;background:var(--bg);border-radius:999px;width:34px;height:34px;font-size:19px;cursor:pointer;color:var(--sub)}
 </style>
 </head>
@@ -284,16 +284,46 @@ function bindPostControls(){
   if(q){ q.oninput=()=>{ curSearch=q.value; refreshResults(); }; }
 }
 
+function addrFromContent(content){
+  if(!content) return "";
+  const m=content.match(/주\s*소\s*[:：|]?\s*([^\n]+)/);
+  if(!m) return "";
+  let a=m[1];
+  a=a.replace(/\(\s*\d{5}\s*\)/g,"")        // 우편번호 (12345)
+     .replace(/\([^)]*\)/g,"")               // (동, 건물명)
+     .replace(/[,\s]*(지하\s*)?\d+\s*층.*$/,"")  // n층 이후 제거
+     .replace(/[,\s]*(지하\s*)?[Bb]\d+.*$/,"")   // B1 등
+     .replace(/[,\s]*\d+\s*호.*$/,"")         // n호 이후
+     .replace(/[,\s]+$/,"")
+     .replace(/\s{2,}/g," ").trim();
+  return a;
+}
+
+function fmtBody(content){
+  if(!content) return '<span style="color:var(--mut)">본문을 수집하지 못했습니다. 원본 링크를 확인하세요.</span>';
+  let out="", first=true;
+  for(const raw of content.split("\n")){
+    const line=raw.trim();
+    if(!line){ out+='<div style="height:8px"></div>'; continue; }
+    const newBlock=/^[<【\[(].+[>】\])]$/.test(line) || /^\d+[.)]\s/.test(line);
+    const mt=(!first && newBlock) ? "14px" : "3px";
+    out+=`<div style="margin-top:${mt};line-height:1.8">${esc(line)}</div>`;
+    first=false;
+  }
+  return out;
+}
+
 function showDetail(no){
   const p=DATA.posts.find(x=>x.no===no); if(!p)return;
   const sibs=DATA.posts.filter(x=>x.clinic_total>=2&&x.author===p.author).sort((a,b)=>a.no-b.no);
   const loc=(p.title||"").split("|")[0].trim();
-  const nmapQ=encodeURIComponent(((p.author||"")+" "+loc).trim()||(p.title||""));
+  const addr=addrFromContent(p.content);
+  const nmapQ=encodeURIComponent(((p.author||"")+" "+(addr||loc)).trim()||(p.title||""));
   const nmap="https://map.naver.com/p/search/"+nmapQ;
   let h=`<h2>${esc(p.title||'(제목 없음)')} ${p.is_deleted?'<span class="badge del">삭제됨</span>':''}</h2>
   <div class="meta">#${p.no} · ${esc(p.author||'-')} · 게시 ${dt(p.posted)}${p.is_deleted?` · 삭제 감지 ${dt(p.deleted_at)}`:''}</div>
   <div class="detail-links"><a href="${esc(p.url)}" target="_blank" rel="noopener">원본 링크</a><a href="${nmap}" target="_blank" rel="noopener">🗺 네이버 지도</a></div>
-  <div class="body">${esc(p.content)||'<span style="color:var(--mut)">본문을 수집하지 못했습니다. 원본 링크를 확인하세요.</span>'}</div>`;
+  <div class="body">${fmtBody(p.content)}</div>`;
   if(sibs.length>1){
     h+=`<h3 style="margin:22px 0 8px;font-size:14px">이 치과의 다른 글 (${sibs.length}건)</h3>`;
     for(const s of sibs){h+=`<div style="padding:6px 0;border-top:1px solid var(--line);font-size:13px"><span style="color:var(--mut)">${s===p?'▶ ':''}</span><span class="title-link" onclick="showDetail(${s.no})">${esc(s.title||'(제목 없음)')}</span> · ${dt(s.posted)} ${s.is_deleted?'<span class="badge del">삭제</span>':''}</div>`;}
