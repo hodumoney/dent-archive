@@ -161,7 +161,7 @@ const DATA = __DATA__;
 
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function dt(s){return s?String(s).replace("T"," ").slice(0,16):"-";}
-let curTab="clinics", curStatus="all", curSearch="", curRegion="전체";
+let curTab="clinics", curSearch="", curRegion="전체";
 const REGIONS=["전체","서울","경기","인천","부산","대구","광주","대전","울산","세종","충북","충남","전남","전북","경북","경남","강원","제주","기타"];
 
 function chips(){
@@ -198,8 +198,7 @@ function renderClinics(){
 
 function renderPosts(){
   let base=DATA.posts;
-  if(curStatus==="deleted") base=base.filter(p=>p.is_deleted);
-  else if(curStatus==="active") base=base.filter(p=>!p.is_deleted);
+  if(curTab==="deleted") base=base.filter(p=>p.is_deleted);
   if(curSearch){
     const q=curSearch.toLowerCase();
     base=base.filter(p=>(p.title||"").toLowerCase().includes(q)||(p.author||"").toLowerCase().includes(q)||(p.content||"").toLowerCase().includes(q));
@@ -208,11 +207,7 @@ function renderPosts(){
   let rows=base;
   if(curRegion!=="전체") rows=base.filter(p=>(p.region||"기타")===curRegion);
 
-  let h=`<div class="toolbar"><div class="seg">
-    <button data-st="all" class="${curStatus==='all'?'on':''}">전체</button>
-    <button data-st="active" class="${curStatus==='active'?'on':''}">게시중</button>
-    <button data-st="deleted" class="${curStatus==='deleted'?'on':''}">삭제됨</button>
-  </div><div class="search"><input id="q" placeholder="제목·작성자·본문 검색" value="${esc(curSearch)}"></div></div>`;
+  let h=`<div class="toolbar"><div class="search"><input id="q" placeholder="제목·작성자·지역·본문 검색" value="${esc(curSearch)}"></div></div>`;
   h+=`<div class="regions">`;
   for(const r of REGIONS){
     const c = r==="전체" ? base.length : (rc[r]||0);
@@ -240,12 +235,11 @@ function renderPosts(){
 function render(){
   const app=document.getElementById("app");
   if(curTab==="clinics"){app.innerHTML=renderClinics();}
-  else{curStatus=(curTab==="deleted")?"deleted":curStatus; app.innerHTML=renderPosts(); bindPostControls();}
+  else{app.innerHTML=renderPosts(); bindPostControls();}
   document.getElementById("updated").textContent="마지막 업데이트 "+dt(DATA.generated_at);
 }
 
 function bindPostControls(){
-  document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{curStatus=b.dataset.st;render();});
   document.querySelectorAll(".regions button").forEach(b=>b.onclick=()=>{curRegion=b.dataset.rg;render();});
   const q=document.getElementById("q");
   if(q){q.oninput=()=>{curSearch=q.value; const app=document.getElementById("app"); app.innerHTML=renderPosts(); bindPostControls(); const nq=document.getElementById("q"); nq.focus(); nq.setSelectionRange(nq.value.length,nq.value.length);};}
@@ -268,7 +262,7 @@ function closeModal(){document.getElementById("overlay").classList.remove("on");
 document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")closeModal();};
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("#tabs button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
-  curTab=b.dataset.tab; if(curTab==="all")curStatus="all"; render();
+  curTab=b.dataset.tab; render();
 });
 render();
 </script>
