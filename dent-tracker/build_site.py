@@ -96,7 +96,9 @@ nav.tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
 .clinic{background:var(--card);border-radius:18px;padding:18px 18px 8px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .clinic-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .clinic-id{display:flex;align-items:center;gap:8px;min-width:0}
-.clinic-id .name{font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clinic-id .name{font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.clinic-id .name:hover{color:var(--blue)}
+.clinic-id .name:hover{color:var(--blue);text-decoration:underline}
 .clinic-id .kind{font-size:11px;font-weight:700;color:var(--mut);background:var(--bg);border-radius:6px;padding:2px 7px}
 .count{font-size:13px;font-weight:800;background:var(--red-soft);color:var(--red);border-radius:999px;padding:6px 12px;white-space:nowrap}
 .count .x{font-weight:600;color:var(--mut);margin-left:6px}
@@ -185,14 +187,15 @@ function chips(){
 }
 
 function renderClinics(){
-  let h=chips();
+  let h="";
   if(!DATA.clinics.length){
     h+=`<div class="empty">아직 반복 게시가 감지된 치과가 없습니다.<br>수집이 며칠 쌓이면 재게시 패턴이 나타납니다.</div>`;
     return h;
   }
   for(const g of DATA.clinics){
+    const latest=g.posts.reduce((a,b)=>(b.no>a.no?b:a));
     h+=`<div class="clinic"><div class="clinic-head">
-      <div class="clinic-id"><span class="name">${esc(g.label)}</span><span class="kind">${esc(g.kind)}</span></div>
+      <div class="clinic-id"><span class="name" onclick="showDetail(${latest.no})">${esc(g.label)}</span><span class="kind">${esc(g.kind)}</span></div>
       <span class="count">${g.post_count}회 게시<span class="x">삭제 ${g.deleted_count}</span></span>
     </div><div class="timeline"><div class="tl-track">`;
     for(const p of g.posts){
@@ -255,15 +258,16 @@ function renderPosts(){
 
 function render(){
   const app=document.getElementById("app");
-  if(curTab==="clinics"){app.innerHTML=renderClinics();}
-  else{app.innerHTML=renderPosts(); bindPostControls();}
+  const c=chips();
+  if(curTab==="clinics"){app.innerHTML=c+renderClinics();}
+  else{app.innerHTML=c+renderPosts(); bindPostControls();}
   document.getElementById("updated").textContent="마지막 업데이트 "+dt(DATA.generated_at);
 }
 
 function bindPostControls(){
   document.querySelectorAll(".regions button").forEach(b=>b.onclick=()=>{curRegion=b.dataset.rg;render();});
   const q=document.getElementById("q");
-  if(q){q.oninput=()=>{curSearch=q.value; const app=document.getElementById("app"); app.innerHTML=renderPosts(); bindPostControls(); const nq=document.getElementById("q"); nq.focus(); nq.setSelectionRange(nq.value.length,nq.value.length);};}
+  if(q){q.oninput=()=>{curSearch=q.value; const app=document.getElementById("app"); app.innerHTML=chips()+renderPosts(); bindPostControls(); const nq=document.getElementById("q"); nq.focus(); nq.setSelectionRange(nq.value.length,nq.value.length);};}
 }
 
 function showDetail(no){
