@@ -79,7 +79,7 @@ HTML = r"""<!DOCTYPE html>
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;letter-spacing:-.02em;-webkit-font-smoothing:antialiased}
 a{color:var(--blue);text-decoration:none}
-.wrap{max-width:920px;margin:0 auto;padding:0 16px 80px}
+.wrap{max-width:920px;margin:0 auto;padding:24px 16px 80px}
 header.top{background:var(--card);position:sticky;top:0;z-index:5;box-shadow:0 1px 0 rgba(0,0,0,.05)}
 .top-in{max-width:920px;margin:0 auto;padding:16px 16px 0}
 .brand .kicker{font-size:12px;font-weight:700;color:var(--blue)}
@@ -87,7 +87,7 @@ header.top{background:var(--card);position:sticky;top:0;z-index:5;box-shadow:0 1
 nav.tabs{display:flex;gap:20px;margin-top:12px}
 nav.tabs button{font-size:15px;font-weight:700;color:var(--mut);padding:10px 0;border:none;background:none;cursor:pointer;font-family:var(--sans);border-bottom:2.5px solid transparent}
 nav.tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
-.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0 22px}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 22px}
 .chip{background:var(--card);border-radius:16px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .chip .n{font-size:26px;font-weight:800;line-height:1;letter-spacing:-.03em}
 .chip .l{font-size:13px;color:var(--mut);margin-top:7px;font-weight:500}
@@ -154,8 +154,8 @@ nav.tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
 <header class="top"><div class="top-in">
   <div class="brand"><span class="kicker">Dental Recruit Archive</span><h1>치과 구인글 아카이브</h1></div>
   <nav class="tabs" id="tabs">
-    <button data-tab="clinics" class="on">반복 치과</button>
-    <button data-tab="all">전체 글</button>
+    <button data-tab="all" class="on">전체 글</button>
+    <button data-tab="clinics">반복 치과</button>
     <button data-tab="deleted">삭제된 글</button>
   </nav>
 </div></header>
@@ -172,7 +172,7 @@ const DATA = __DATA__;
 
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function dt(s){return s?String(s).replace("T"," ").slice(0,16):"-";}
-let curTab="clinics", curSearch="", curRegion="전체";
+let curTab="all", curSearch="", curRegion="전체";
 const REGIONS=["전체","서울","경기","인천","부산","대구","광주","대전","울산","세종","충북","충남","전남","전북","경북","경남","강원","제주","기타"];
 
 function chips(){
