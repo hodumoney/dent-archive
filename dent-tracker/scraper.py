@@ -46,6 +46,13 @@ def _get(url, params=None):
     return resp
 
 
+def _js_redirect(html):
+    """document.location.href='...' / location.replace('...') 같은 JS 이동 주소."""
+    m = (re.search(r"location\.(?:href\s*=|replace\s*\()\s*['\"]([^'\"]+)['\"]", html)
+         or re.search(r"<meta[^>]+url=([^'\">\s]+)", html, re.I))
+    return m.group(1) if m else None
+
+
 def _find_login_redirect(html):
     """JS 리디렉션(로그인 페이지로 튕김) 주소 추출."""
     m = (re.search(r"location\.replace\(['\"]([^'\"]+)['\"]\)", html)
@@ -158,4 +165,12 @@ def fetch_list_page(page):
 
 def fetch_view(url):
     ensure_login()
-    return _decode(_get(url))
+    html = _decode(_get(url))
+    # list2content.php → content.php 처럼 JS로 넘기는 페이지를 따라간다 (최대 3회)
+    for _ in range(3):
+        red = _js_redirect(html)
+        if not red or "login" in red.lower():
+            break
+        url = urljoin(url, red)
+        html = _decode(_get(url))
+    return html
