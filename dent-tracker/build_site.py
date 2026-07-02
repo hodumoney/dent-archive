@@ -278,6 +278,7 @@ function showDetail(no){
   }
   document.getElementById("modalBody").innerHTML=h;
   document.getElementById("overlay").classList.add("on");
+  const mo=document.querySelector(".modal"); if(mo) mo.scrollTop=0;
 }
 function closeModal(){document.getElementById("overlay").classList.remove("on");}
 document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")closeModal();};
