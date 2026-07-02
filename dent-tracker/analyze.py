@@ -2,6 +2,9 @@
 """반복 게시 치과 분석 — 식별키로 묶어 횟수/타임라인 계산."""
 import db
 
+# 옛 파서 시절의 찌꺼기(작성자·구분이 모두 비어있는 행)를 모든 계산에서 제외
+_REAL = "(author IS NOT NULL OR category IS NOT NULL)"
+
 
 def _order_ts(p):
     """정렬용 시각: 게시판 날짜 우선, 없으면 최초 발견 시각."""
@@ -15,7 +18,7 @@ def clinic_groups(min_posts=2, include_singletons=False):
       first, last, posts:[...] }] — 글 많은 순 정렬.
     """
     with db.get_db() as conn:
-        rows = [dict(r) for r in conn.execute("SELECT * FROM posts").fetchall()]
+        rows = [dict(r) for r in conn.execute(f"SELECT * FROM posts WHERE {_REAL}").fetchall()]
 
     groups = {}
     for p in rows:
@@ -53,7 +56,7 @@ def clinic_groups(min_posts=2, include_singletons=False):
 
 def all_posts(status="all", search=None, order="recent"):
     """게시판 뷰용 글 목록. status: all|deleted|active."""
-    q = "SELECT * FROM posts WHERE 1=1"
+    q = f"SELECT * FROM posts WHERE {_REAL}"
     args = []
     if status == "deleted":
         q += " AND is_deleted=1"
@@ -74,7 +77,7 @@ def all_posts(status="all", search=None, order="recent"):
         counts[r["clinic_key"]] = counts.get(r["clinic_key"], 0) + 1
     with db.get_db() as conn:
         full = {}
-        for r in conn.execute("SELECT clinic_key, COUNT(*) c FROM posts GROUP BY clinic_key"):
+        for r in conn.execute(f"SELECT clinic_key, COUNT(*) c FROM posts WHERE {_REAL} GROUP BY clinic_key"):
             full[r["clinic_key"]] = r["c"]
     for r in rows:
         r["clinic_total"] = full.get(r["clinic_key"], 1)
@@ -83,10 +86,10 @@ def all_posts(status="all", search=None, order="recent"):
 
 def summary():
     with db.get_db() as conn:
-        total = conn.execute("SELECT COUNT(*) c FROM posts").fetchone()["c"]
-        deleted = conn.execute("SELECT COUNT(*) c FROM posts WHERE is_deleted=1").fetchone()["c"]
+        total = conn.execute(f"SELECT COUNT(*) c FROM posts WHERE {_REAL}").fetchone()["c"]
+        deleted = conn.execute(f"SELECT COUNT(*) c FROM posts WHERE is_deleted=1 AND {_REAL}").fetchone()["c"]
         repeat = conn.execute(
-            "SELECT COUNT(*) c FROM (SELECT clinic_key FROM posts "
+            f"SELECT COUNT(*) c FROM (SELECT clinic_key FROM posts WHERE {_REAL} "
             "GROUP BY clinic_key HAVING COUNT(*)>=2)"
         ).fetchone()["c"]
         last_run = conn.execute(
