@@ -195,7 +195,7 @@ function renderClinics(){
   for(const g of DATA.clinics){
     const latest=g.posts.reduce((a,b)=>(b.no>a.no?b:a));
     h+=`<div class="clinic"><div class="clinic-head">
-      <div class="clinic-id"><span class="name" onclick="showDetail(${latest.no})">${esc(g.label)}</span><span class="kind">${esc(g.kind)}</span></div>
+      <div class="clinic-id"><span class="name" onclick="showDetail(${latest.no})">${esc(g.label)}</span><span class="rg-chip">${esc(latest.region||'기타')}</span></div>
       <span class="count">${g.post_count}회 게시<span class="x">삭제 ${g.deleted_count}</span></span>
     </div><div class="timeline"><div class="tl-track">`;
     for(const p of g.posts){
@@ -217,10 +217,10 @@ function renderPosts(){
     const q=curSearch.toLowerCase();
     base=base.filter(p=>(p.title||"").toLowerCase().includes(q)||(p.author||"").toLowerCase().includes(q)||(p.content||"").toLowerCase().includes(q));
   }
-  // 같은 게시물(같은 치과 + 같은 내용)끼리 하나로 합치기
+  // 같은 치과(작성자)면 제목이 조금 달라도 하나로 합치기
   const gm=new Map();
   for(const p of base){
-    const k=(p.key||p.author||("n"+p.no))+"¦"+(p.sig||("n"+p.no));
+    const k=(p.key||p.author||("n"+p.no));
     const g=gm.get(k);
     if(!g){ gm.set(k,{rep:p,count:1}); }
     else { g.count++; if(p.no>g.rep.no) g.rep=p; }
