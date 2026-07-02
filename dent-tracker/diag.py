@@ -1,42 +1,46 @@
 # -*- coding: utf-8 -*-
-"""작성자(memo_id) 링크 주변의 실제 게시글 행 구조 덤프 (v5)."""
+"""상세 페이지(본문) 구조 확인 — 본문 추출 교정용."""
 import config
 import scraper
+import parser
 from bs4 import BeautifulSoup
 
 ok = scraper.ensure_login(verbose=True)
-print("로그인 결과:", ok)
+print("로그인:", ok)
 if not ok:
     raise SystemExit(0)
 
 html = scraper.fetch_list_page(1)
-print("목록 HTML 길이:", len(html))
-soup = BeautifulSoup(html, "lxml")
+rows = parser.parse_list(html)
+print("목록 글수:", len(rows))
+if not rows:
+    raise SystemExit(0)
 
-memo = [a for a in soup.find_all("a", href=True) if "memo_id" in a["href"]]
-print("memo_id 링크 수:", len(memo))
+url = rows[0]["url"]
+print("상세 URL:", url)
+vhtml = scraper.fetch_view(url)
+print("상세 HTML 길이:", len(vhtml))
 
+soup = BeautifulSoup(vhtml, "lxml")
+for t in soup(["script", "style", "noscript"]):
+    t.decompose()
 
-def row_ancestor(a):
-    node = a
-    for _ in range(7):
-        p = node.parent
-        if p is None:
-            break
-        if len(p.get_text(" ", strip=True)) > 40:
-            return p
-        node = p
-    return a.parent
+print("\n=== 텍스트 많은 블록 상위 12개 (본문 후보) ===")
+cands = []
+for el in soup.find_all(["div", "td", "table", "article", "section", "p", "pre"]):
+    txt = el.get_text(" ", strip=True)
+    links = sum(len(a.get_text(strip=True)) for a in el.find_all("a"))
+    cands.append((len(txt), links, el))
+cands.sort(key=lambda x: -x[0])
+n = 0
+for tlen, links, el in cands:
+    if tlen < 20:
+        continue
+    print(f"  <{el.name} id={el.get('id')} class={el.get('class')}> 글자={tlen} 링크글자={links}")
+    print("     ", el.get_text(' ', strip=True)[:110])
+    n += 1
+    if n >= 12:
+        break
 
-
-# 작성자 링크 3개의 '행 컨테이너' 전체 HTML
-for i, a in enumerate(memo[2:5]):
-    anc = row_ancestor(a)
-    print(f"\n===== 행 {i} (작성자 '{a.get_text(strip=True)[:22]}', 컨테이너=<{anc.name}>) =====")
-    print(str(anc)[:1800])
-
-# 원본 HTML에서 첫 memo_id 앞뒤 통째로 (구조 파악 보조)
-idx = html.find("memo_id")
-if idx > 0:
-    print("\n===== 원본 HTML: 첫 memo_id 앞 1000 ~ 뒤 300자 =====")
-    print(html[max(0, idx - 1000):idx + 300])
+print("\n=== 상세 HTML 앞 2500자 ===")
+print(vhtml[:2500])
