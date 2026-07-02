@@ -167,30 +167,39 @@ def parse_list(html):
 
 # ── 상세 파싱 (본문 텍스트 추출) ──────────────────────────────
 def parse_view(html):
+    """content.php 에서 제목/작성자/지역/연락처 + 본문(주소·급여 등)만 추출."""
     soup = BeautifulSoup(html, "lxml")
-    for tag in soup(["script", "style", "noscript", "header", "footer", "nav", "form"]):
+    for tag in soup(["script", "style", "noscript"]):
         tag.decompose()
-    # 메뉴/네비게이션으로 보이는 ul 제거 (링크가 많은 목록)
-    for ul in soup.find_all("ul"):
-        if len(ul.find_all("a")) >= 4 and len(ul.get_text(strip=True)) < 400:
-            ul.decompose()
-    # 지정 selector 우선
+
+    title_el = soup.select_one(".board_content_title")
+    body_el = (soup.select_one(".board_content_view")
+               or soup.select_one("#qcontents"))
+    parts = []
+    if title_el:
+        parts.append(title_el.get_text("\n", strip=True))
+    if body_el:
+        parts.append(body_el.get_text("\n", strip=True))
+    if parts:
+        text = "\n\n".join(parts)
+        # 라벨 사이 과도한 공백 정리
+        import re as _re
+        text = _re.sub(r"[ \t]{2,}", " ", text)
+        return {"content": text}
+
+    # 폴백: 지정 selector → 링크 적고 텍스트 많은 블록
     for sel in config.VIEW_CONTENT_SELECTORS:
         el = soup.select_one(sel)
         if el:
-            text = el.get_text("\n", strip=True)
-            if len(text) > 20:
-                return {"content": text}
-    # 폴백: 링크 비중 낮고 가장 텍스트 많은 블록
+            t = el.get_text("\n", strip=True)
+            if len(t) > 20:
+                return {"content": t}
     best = ""
     for tag in soup.find_all(["td", "div", "article", "section", "p"]):
         links = sum(len(a.get_text(strip=True)) for a in tag.find_all("a"))
-        text = tag.get_text("\n", strip=True)
-        if links > len(text) * 0.5:
+        t = tag.get_text("\n", strip=True)
+        if links > len(t) * 0.5:
             continue
-        if len(text) > len(best):
-            best = text
-    if len(best) < 20:
-        body = soup.find("body")
-        best = body.get_text("\n", strip=True) if body else ""
+        if len(t) > len(best):
+            best = t
     return {"content": best}
