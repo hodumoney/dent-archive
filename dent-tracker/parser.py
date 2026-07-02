@@ -167,25 +167,19 @@ def parse_list(html):
 
 # ── 상세 파싱 (본문 텍스트 추출) ──────────────────────────────
 def parse_view(html):
-    """content.php 에서 제목/작성자/지역/연락처 + 본문(주소·급여 등)만 추출."""
+    """content.php 에서 실제 본문(board_content_view)만 추출."""
     soup = BeautifulSoup(html, "lxml")
     for tag in soup(["script", "style", "noscript"]):
         tag.decompose()
 
-    title_el = soup.select_one(".board_content_title")
     body_el = (soup.select_one(".board_content_view")
                or soup.select_one("#qcontents"))
-    parts = []
-    if title_el:
-        parts.append(title_el.get_text("\n", strip=True))
     if body_el:
-        parts.append(body_el.get_text("\n", strip=True))
-    if parts:
-        text = "\n\n".join(parts)
-        # 라벨 사이 과도한 공백 정리
+        text = body_el.get_text("\n", strip=True)
         import re as _re
         text = _re.sub(r"[ \t]{2,}", " ", text)
-        return {"content": text}
+        if len(text) > 5:
+            return {"content": text}
 
     # 폴백: 지정 selector → 링크 적고 텍스트 많은 블록
     for sel in config.VIEW_CONTENT_SELECTORS:
