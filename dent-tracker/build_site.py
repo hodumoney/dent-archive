@@ -147,7 +147,10 @@ nav.tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
 .modal{background:var(--card);border-radius:22px 22px 0 0;max-width:640px;width:100%;padding:24px 22px 34px;position:relative;max-height:88vh;overflow-y:auto}
 @media(min-width:640px){.overlay{align-items:center}.modal{border-radius:22px}}
 .modal h2{margin:0 30px 6px 0;font-size:19px;font-weight:800;line-height:1.4}
-.modal .meta{font-size:13px;color:var(--mut);margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line);font-weight:500}
+.modal .meta{font-size:13px;color:var(--mut);margin:0 0 12px;font-weight:500}
+.detail-links{display:flex;gap:8px;margin:0 0 18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.detail-links a{font-size:13px;font-weight:700;color:var(--blue);background:var(--blue-soft);border-radius:9px;padding:8px 14px;text-decoration:none}
+.detail-links a:hover{background:#D8E7FD}
 .modal .body{white-space:pre-wrap;line-height:1.75;font-size:15px;color:var(--sub)}
 .modal .close{position:absolute;top:16px;right:16px;border:none;background:var(--bg);border-radius:999px;width:34px;height:34px;font-size:19px;cursor:pointer;color:var(--sub)}
 </style>
@@ -210,7 +213,7 @@ function renderClinics(){
   return h;
 }
 
-function renderPosts(){
+function postsResults(){
   let base=DATA.posts;
   if(curTab==="deleted") base=base.filter(p=>p.is_deleted);
   if(curSearch){
@@ -230,15 +233,13 @@ function renderPosts(){
   let items=allItems;
   if(curRegion!=="전체") items=allItems.filter(it=>(it.rep.region||"기타")===curRegion);
 
-  let h=`<div class="toolbar"><div class="search"><input id="q" placeholder="제목·작성자·지역·본문 검색" value="${esc(curSearch)}"></div></div>`;
-  h+=`<div class="regions">`;
+  let h=`<div class="regions">`;
   for(const r of REGIONS){
     const c = r==="전체" ? allItems.length : (rc[r]||0);
     if(r!=="전체" && r!=="기타" && c===0 && curRegion!==r) continue;
     h+=`<button data-rg="${r}" class="${curRegion===r?'on':''}">${r}${r!=="전체"?` <span class="rc">${c}</span>`:''}</button>`;
   }
   h+=`</div>`;
-
   if(!items.length){h+=`<div class="empty">해당하는 글이 없습니다.</div>`;return h;}
   h+=`<div class="list">`;
   for(const it of items){
@@ -256,6 +257,11 @@ function renderPosts(){
   return h;
 }
 
+function renderPosts(){
+  return `<div class="toolbar"><div class="search"><input id="q" placeholder="제목·작성자·지역·본문 검색" value="${esc(curSearch)}"></div></div>`
+       + `<div id="posts_results">${postsResults()}</div>`;
+}
+
 function render(){
   const app=document.getElementById("app");
   const c=chips();
@@ -264,10 +270,18 @@ function render(){
   document.getElementById("updated").textContent="마지막 업데이트 "+dt(DATA.generated_at);
 }
 
+function refreshResults(){
+  const box=document.getElementById("posts_results");
+  if(box){ box.innerHTML=postsResults(); bindRegions(); }
+}
+function bindRegions(){
+  document.querySelectorAll(".regions button").forEach(b=>b.onclick=()=>{curRegion=b.dataset.rg; refreshResults();});
+}
 function bindPostControls(){
-  document.querySelectorAll(".regions button").forEach(b=>b.onclick=()=>{curRegion=b.dataset.rg;render();});
+  bindRegions();
   const q=document.getElementById("q");
-  if(q){q.oninput=()=>{curSearch=q.value; const app=document.getElementById("app"); app.innerHTML=chips()+renderPosts(); bindPostControls(); const nq=document.getElementById("q"); nq.focus(); nq.setSelectionRange(nq.value.length,nq.value.length);};}
+  // 입력창은 다시 그리지 않고 결과만 갱신 → 한글 조합이 끊기지 않음
+  if(q){ q.oninput=()=>{ curSearch=q.value; refreshResults(); }; }
 }
 
 function showDetail(no){
@@ -277,7 +291,8 @@ function showDetail(no){
   const nmapQ=encodeURIComponent(((p.author||"")+" "+loc).trim()||(p.title||""));
   const nmap="https://map.naver.com/p/search/"+nmapQ;
   let h=`<h2>${esc(p.title||'(제목 없음)')} ${p.is_deleted?'<span class="badge del">삭제됨</span>':''}</h2>
-  <div class="meta">#${p.no} · ${esc(p.author||'-')} · 게시 ${dt(p.posted)}${p.is_deleted?` · 삭제 감지 ${dt(p.deleted_at)}`:''} · <a href="${esc(p.url)}" target="_blank" rel="noopener">원본 링크</a> · <a href="${nmap}" target="_blank" rel="noopener">🗺 네이버 지도</a></div>
+  <div class="meta">#${p.no} · ${esc(p.author||'-')} · 게시 ${dt(p.posted)}${p.is_deleted?` · 삭제 감지 ${dt(p.deleted_at)}`:''}</div>
+  <div class="detail-links"><a href="${esc(p.url)}" target="_blank" rel="noopener">원본 링크</a><a href="${nmap}" target="_blank" rel="noopener">🗺 네이버 지도</a></div>
   <div class="body">${esc(p.content)||'<span style="color:var(--mut)">본문을 수집하지 못했습니다. 원본 링크를 확인하세요.</span>'}</div>`;
   if(sibs.length>1){
     h+=`<h3 style="margin:22px 0 8px;font-size:14px">이 치과의 다른 글 (${sibs.length}건)</h3>`;
