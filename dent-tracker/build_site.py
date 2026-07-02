@@ -273,8 +273,11 @@ function bindPostControls(){
 function showDetail(no){
   const p=DATA.posts.find(x=>x.no===no); if(!p)return;
   const sibs=DATA.posts.filter(x=>x.clinic_total>=2&&x.author===p.author).sort((a,b)=>a.no-b.no);
+  const loc=(p.title||"").split("|")[0].trim();
+  const nmapQ=encodeURIComponent(((p.author||"")+" "+loc).trim()||(p.title||""));
+  const nmap="https://map.naver.com/p/search/"+nmapQ;
   let h=`<h2>${esc(p.title||'(제목 없음)')} ${p.is_deleted?'<span class="badge del">삭제됨</span>':''}</h2>
-  <div class="meta">#${p.no} · ${esc(p.author||'-')} · 게시 ${dt(p.posted)}${p.is_deleted?` · 삭제 감지 ${dt(p.deleted_at)}`:''} · <a href="${esc(p.url)}" target="_blank" rel="noopener">원본 링크</a></div>
+  <div class="meta">#${p.no} · ${esc(p.author||'-')} · 게시 ${dt(p.posted)}${p.is_deleted?` · 삭제 감지 ${dt(p.deleted_at)}`:''} · <a href="${esc(p.url)}" target="_blank" rel="noopener">원본 링크</a> · <a href="${nmap}" target="_blank" rel="noopener">🗺 네이버 지도</a></div>
   <div class="body">${esc(p.content)||'<span style="color:var(--mut)">본문을 수집하지 못했습니다. 원본 링크를 확인하세요.</span>'}</div>`;
   if(sibs.length>1){
     h+=`<h3 style="margin:22px 0 8px;font-size:14px">이 치과의 다른 글 (${sibs.length}건)</h3>`;
