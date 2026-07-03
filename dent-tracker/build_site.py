@@ -69,6 +69,7 @@ HTML = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>치과 구인글 아카이브</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦷</text></svg>">
 <style>
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");
 :root{
@@ -176,7 +177,7 @@ nav.tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
   </div>
 </div>
 <header class="top"><div class="top-in">
-  <div class="brand"><span class="kicker">Dental Recruit Archive</span><h1>치과 구인글 아카이브</h1></div>
+  <div class="brand" onclick="goHome()" style="cursor:pointer"><span class="kicker">Dental Recruit Archive</span><h1>치과 구인글 아카이브</h1></div>
   <nav class="tabs" id="tabs">
     <button data-tab="all" class="on">전체 글</button>
     <button data-tab="clinics">반복 치과</button>
@@ -341,6 +342,12 @@ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("#tabs button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   curTab=b.dataset.tab; render();
 });
+function goHome(){
+  curTab="all"; curSearch=""; curRegion="전체";
+  document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on", x.dataset.tab==="all"));
+  render();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
 render();
 
 // ── 입장 확인(간단한 질문) ─────────────────────────
