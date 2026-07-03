@@ -153,9 +153,28 @@ nav.tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
 .detail-links a:hover{background:#D8E7FD}
 .modal .body{font-size:15px;color:var(--ink)}
 .modal .close{position:absolute;top:16px;right:16px;border:none;background:var(--bg);border-radius:999px;width:34px;height:34px;font-size:19px;cursor:pointer;color:var(--sub)}
+#gate{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.gate-card{background:var(--card);border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:30px 24px;max-width:400px;width:100%;text-align:center}
+.gate-title{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:12px}
+.gate-q{font-size:18px;font-weight:800;color:var(--ink);line-height:1.5;margin-bottom:8px;letter-spacing:-.02em}
+.gate-hint{font-size:14px;color:var(--mut);margin-bottom:20px}
+#gateInput{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px 14px;font-size:15px;font-family:var(--sans);text-align:center}
+#gateInput:focus{outline:2px solid var(--blue);border-color:transparent}
+#gateBtn{width:100%;margin-top:12px;border:none;background:var(--blue);color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--sans)}
+.gate-err{color:var(--red);font-size:13px;font-weight:600;margin-top:12px;min-height:18px}
 </style>
 </head>
 <body>
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-title">입장 확인</div>
+    <div class="gate-q" id="gateQ"></div>
+    <div class="gate-hint" id="gateHint"></div>
+    <input id="gateInput" placeholder="정답 입력" autocomplete="off" autocapitalize="off">
+    <button id="gateBtn">입장하기</button>
+    <div class="gate-err" id="gateErr"></div>
+  </div>
+</div>
 <header class="top"><div class="top-in">
   <div class="brand"><span class="kicker">Dental Recruit Archive</span><h1>치과 구인글 아카이브</h1></div>
   <nav class="tabs" id="tabs">
@@ -284,21 +303,6 @@ function bindPostControls(){
   if(q){ q.oninput=()=>{ curSearch=q.value; refreshResults(); }; }
 }
 
-function addrFromContent(content){
-  if(!content) return "";
-  const m=content.match(/주\s*소\s*[:：|]?\s*([^\n]+)/);
-  if(!m) return "";
-  let a=m[1];
-  a=a.replace(/\(\s*\d{5}\s*\)/g,"")        // 우편번호 (12345)
-     .replace(/\([^)]*\)/g,"")               // (동, 건물명)
-     .replace(/[,\s]*(지하\s*)?\d+\s*층.*$/,"")  // n층 이후 제거
-     .replace(/[,\s]*(지하\s*)?[Bb]\d+.*$/,"")   // B1 등
-     .replace(/[,\s]*\d+\s*호.*$/,"")         // n호 이후
-     .replace(/[,\s]+$/,"")
-     .replace(/\s{2,}/g," ").trim();
-  return a;
-}
-
 function fmtBody(content){
   if(!content) return '<span style="color:var(--mut)">본문을 수집하지 못했습니다. 원본 링크를 확인하세요.</span>';
   let out="", first=true;
@@ -317,8 +321,7 @@ function showDetail(no){
   const p=DATA.posts.find(x=>x.no===no); if(!p)return;
   const sibs=DATA.posts.filter(x=>x.clinic_total>=2&&x.author===p.author).sort((a,b)=>a.no-b.no);
   const loc=(p.title||"").split("|")[0].trim();
-  const addr=addrFromContent(p.content);
-  const nmapQ=encodeURIComponent(((p.author||"")+" "+(addr||loc)).trim()||(p.title||""));
+  const nmapQ=encodeURIComponent(((p.author||"")+" "+loc).trim()||(p.title||""));
   const nmap="https://map.naver.com/p/search/"+nmapQ;
   let h=`<h2>${esc(p.title||'(제목 없음)')} ${p.is_deleted?'<span class="badge del">삭제됨</span>':''}</h2>
   <div class="meta">#${p.no} · ${esc(p.author||'-')} · 게시 ${dt(p.posted)}${p.is_deleted?` · 삭제 감지 ${dt(p.deleted_at)}`:''}</div>
@@ -339,6 +342,32 @@ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{
   curTab=b.dataset.tab; render();
 });
 render();
+
+// ── 입장 확인(간단한 질문) ─────────────────────────
+// 질문을 늘리려면 아래 배열에 {q, hint, a:[정답들]} 를 추가하면 됩니다.
+const QUESTIONS=[
+  {q:"치과대학 5층에 위치한 세미나룸 이름은?", hint:"힌트: ㅅㅂㅇ홀", a:["서병인홀","서병인"]}
+];
+function normAns(s){return (s||"").replace(/\s/g,"").toLowerCase();}
+(function initGate(){
+  const item=QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)];
+  const accepted=item.a.map(normAns);
+  document.getElementById("gateQ").textContent=item.q;
+  document.getElementById("gateHint").textContent=item.hint||"";
+  const inp=document.getElementById("gateInput");
+  const err=document.getElementById("gateErr");
+  function submit(){
+    if(accepted.includes(normAns(inp.value))){
+      document.getElementById("gate").style.display="none";
+    }else{
+      err.textContent="정답이 아닙니다. 다시 시도해 주세요.";
+      inp.value=""; inp.focus();
+    }
+  }
+  document.getElementById("gateBtn").onclick=submit;
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter")submit();});
+  inp.focus();
+})();
 </script>
 </body>
 </html>
